@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pixel Jumpscare Game</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+
+    #pixel {
+      width: 15px;
+      height: 15px;
+      background: white;
+      position: absolute;
+      border-radius: 2px;
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    .shard {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: white;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: explode 0.6s ease-out forwards;
+    }
+
+    @keyframes explode {
+      0% {
+        transform: translate(0, 0) rotate(0deg);
+        opacity: 1;
+      }
+      70% {
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--x), var(--y)) rotate(720deg);
+        opacity: 0;
+      }
+    }
+
+    /* Jumpscare full screen */
+    #jumpscare {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.95);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    #jumpscare img {
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    /* Tambahan untuk mode portrait agar pixel lebih besar dan jumpscare proporsional */
+    @media (orientation: portrait) {
+      #pixel {
+        width: 25px;
+        height: 25px;
+      }
+
+      #jumpscare img {
+        max-width: 90vw;
+        max-height: 60vh;
+        object-fit: contain;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Pixel -->
+  <div id="pixel"></div>
+
+  <!-- Jumpscare -->
+  <div id="jumpscare">
+    <img src="jumpscare1.png" alt="Jumpscare" />
+  </div>
+
+  <!-- Audio -->
+  <audio id="tapSound" src="click.wav" preload="auto"></audio>
+  <audio id="knockSound" src="knock.wav" preload="auto"></audio>
+  <!-- scream audio akan dibuat dinamis di JS -->
+
+  <script>
+    const pixel = document.getElementById("pixel");
+    const tapSound = document.getElementById("tapSound");
+    const knockSound = document.getElementById("knockSound");
+    const jumpscare = document.getElementById("jumpscare");
+    const jumpscareImg = jumpscare.querySelector("img");
+
+    // Array gambar jumpscare
+    const jumpscareImages = [
+      "jumpscare1.png",
+      "jumpscare2.png"
+    ];
+
+    // Array scream audio dibuat sebagai objek Audio
+    const screamSounds = [
+      new Audio("scream1.wav"),
+      new Audio("scream2.wav")
+    ];
+
+    let isJumpscareActive = false;
+
+    function placePixelRandomly() {
+      const pixelSize = pixel.offsetWidth;
+      const maxX = window.innerWidth - pixelSize;
+      const maxY = window.innerHeight - pixelSize;
+      const x = Math.floor(Math.random() * maxX);
+      const y = Math.floor(Math.random() * maxY);
+      pixel.style.left = x + "px";
+      pixel.style.top = y + "px";
+    }
+
+    function getRandomColor() {
+      const colors = ["#ff4d4d", "#ffcc00", "#00ffcc", "#00ccff", "#cc66ff", "#ffffff"];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function createExplosion(x, y) {
+      const centerX = x + pixel.offsetWidth / 2;
+      const centerY = y + pixel.offsetHeight / 2;
+
+      for (let i = 0; i < 24; i++) {
+        const shard = document.createElement("div");
+        shard.className = "shard";
+        shard.style.background = getRandomColor();
+
+        const angle = Math.random() * 2 * Math.PI;
+        const distance = Math.random() * 80 + 20;
+        const xMove = Math.cos(angle) * distance;
+        const yMove = Math.sin(angle) * distance + (Math.random() * 30 - 15);
+
+        shard.style.left = `${centerX}px`;
+        shard.style.top = `${centerY}px`;
+        shard.style.setProperty("--x", `${xMove}px`);
+        shard.style.setProperty("--y", `${yMove}px`);
+
+        document.body.appendChild(shard);
+        shard.addEventListener("animationend", () => shard.remove());
+      }
+    }
+
+    // Klik pixel putih
+    pixel.addEventListener("click", (e) => {
+      e.stopPropagation(); // agar klik pixel tidak memicu jumpscare
+      tapSound.currentTime = 0;
+      tapSound.play();
+
+      const rect = pixel.getBoundingClientRect();
+      pixel.style.visibility = "hidden";
+
+      createExplosion(rect.left, rect.top);
+
+      setTimeout(() => {
+        placePixelRandomly();
+        pixel.style.visibility = "visible";
+      }, 600);
+    });
+
+    // Klik background → jumpscare 5 detik, dengan proteksi anti spam
+    document.body.addEventListener("click", (e) => {
+      if (e.target !== pixel && !isJumpscareActive) {
+        isJumpscareActive = true;
+
+        // 50% chance mainin knock sound
+        if (Math.random() < 0.5) {
+          knockSound.currentTime = 0;
+          knockSound.play();
+        }
+
+        // Pilih gambar jumpscare random
+        const imgIndex = Math.floor(Math.random() * jumpscareImages.length);
+        jumpscareImg.src = jumpscareImages[imgIndex];
+
+        // Pilih scream random
+        const screamIndex = Math.floor(Math.random() * screamSounds.length);
+        const screamSound = screamSounds[screamIndex];
+        screamSound.currentTime = 0;
+        screamSound.play();
+
+        jumpscare.style.display = "flex";
+
+        setTimeout(() => {
+          jumpscare.style.display = "none";
+          screamSound.pause();
+          isJumpscareActive = false;  // reset flag setelah jumpscare selesai
+        }, 5000);
+      }
+    });
+
+    // Inisialisasi pixel pertama
+    placePixelRandomly();
+    window.addEventListener("resize", placePixelRandomly);
+  </script>
+
+</body>
+</html>
