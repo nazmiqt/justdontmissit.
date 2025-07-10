@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>justdontmissit.</title>
+  <title>Pixel Jumpscare Game</title>
   <style>
     html, body {
       margin: 0;
@@ -22,6 +22,7 @@
       border-radius: 2px;
       cursor: pointer;
       z-index: 10;
+      display: none;
     }
 
     .shard {
@@ -35,20 +36,11 @@
     }
 
     @keyframes explode {
-      0% {
-        transform: translate(0, 0) rotate(0deg);
-        opacity: 1;
-      }
-      70% {
-        opacity: 1;
-      }
-      100% {
-        transform: translate(var(--x), var(--y)) rotate(720deg);
-        opacity: 0;
-      }
+      0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+      70% { opacity: 1; }
+      100% { transform: translate(var(--x), var(--y)) rotate(720deg); opacity: 0; }
     }
 
-    /* Jumpscare full screen */
     #jumpscare {
       position: fixed;
       top: 0;
@@ -67,7 +59,49 @@
       max-height: 100%;
     }
 
-    /* Tambahan untuk mode portrait agar pixel lebih besar dan jumpscare proporsional */
+    #mainMenu {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: black;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      z-index: 10000;
+    }
+
+    #gameTitle {
+      width: 100px;
+      display: block;
+      margin: 0 auto;
+      margin-bottom: 10px;
+    }
+
+    #playBtn {
+      width: 70px;
+      animation: pulse 1.2s infinite;
+      cursor: pointer;
+      display: block;
+      margin: 30px auto 0;
+    }
+
+    #shareBtn {
+      width: 50px;
+      cursor: pointer;
+      display: block;
+      margin: 20px auto 0;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
     @media (orientation: portrait) {
       #pixel {
         width: 25px;
@@ -84,6 +118,13 @@
 </head>
 <body>
 
+  <!-- Main Menu -->
+  <div id="mainMenu">
+    <img id="gameTitle" src="titlegame.png" alt="Title" />
+    <img id="playBtn" src="play.png" alt="Play" />
+    <img id="shareBtn" src="share.png" alt="Share" />
+  </div>
+
   <!-- Pixel -->
   <div id="pixel"></div>
 
@@ -95,7 +136,6 @@
   <!-- Audio -->
   <audio id="tapSound" src="click.wav" preload="auto"></audio>
   <audio id="knockSound" src="knock.wav" preload="auto"></audio>
-  <!-- scream audio akan dibuat dinamis di JS -->
 
   <script>
     const pixel = document.getElementById("pixel");
@@ -104,19 +144,15 @@
     const jumpscare = document.getElementById("jumpscare");
     const jumpscareImg = jumpscare.querySelector("img");
 
-    // Array gambar jumpscare
-    const jumpscareImages = [
-      "jumpscare1.png",
-      "jumpscare2.png"
-    ];
+    const mainMenu = document.getElementById("mainMenu");
+    const playBtn = document.getElementById("playBtn");
+    const shareBtn = document.getElementById("shareBtn");
 
-    // Array scream audio dibuat sebagai objek Audio
-    const screamSounds = [
-      new Audio("scream1.wav"),
-      new Audio("scream2.wav")
-    ];
+    const jumpscareImages = ["jumpscare1.png", "jumpscare2.png"];
+    const screamSounds = [new Audio("scream1.wav"), new Audio("scream2.wav")];
 
     let isJumpscareActive = false;
+    let gameStarted = false;
 
     function placePixelRandomly() {
       const pixelSize = pixel.offsetWidth;
@@ -157,15 +193,26 @@
       }
     }
 
-    // Klik pixel putih
+    playBtn.addEventListener("click", () => {
+      mainMenu.style.display = "none";
+      pixel.style.display = "block";
+      placePixelRandomly();
+      pixel.style.visibility = "visible";
+      gameStarted = true;
+    });
+
+    shareBtn.addEventListener("click", () => {
+      alert("Fitur berbagi belum aktif.");
+    });
+
     pixel.addEventListener("click", (e) => {
-      e.stopPropagation(); // agar klik pixel tidak memicu jumpscare
+      if (!gameStarted) return;
+      e.stopPropagation();
       tapSound.currentTime = 0;
       tapSound.play();
 
       const rect = pixel.getBoundingClientRect();
       pixel.style.visibility = "hidden";
-
       createExplosion(rect.left, rect.top);
 
       setTimeout(() => {
@@ -174,40 +221,45 @@
       }, 600);
     });
 
-    // Klik background → jumpscare 5 detik, dengan proteksi anti spam
     document.body.addEventListener("click", (e) => {
-      if (e.target !== pixel && !isJumpscareActive) {
-        isJumpscareActive = true;
+      if (
+        !gameStarted ||
+        isJumpscareActive ||
+        e.target === pixel ||
+        e.target.closest("#mainMenu")
+      ) return;
 
-        // 50% chance mainin knock sound
-        if (Math.random() < 0.5) {
-          knockSound.currentTime = 0;
-          knockSound.play();
-        }
+      isJumpscareActive = true;
 
-        // Pilih gambar jumpscare random
-        const imgIndex = Math.floor(Math.random() * jumpscareImages.length);
-        jumpscareImg.src = jumpscareImages[imgIndex];
-
-        // Pilih scream random
-        const screamIndex = Math.floor(Math.random() * screamSounds.length);
-        const screamSound = screamSounds[screamIndex];
-        screamSound.currentTime = 0;
-        screamSound.play();
-
-        jumpscare.style.display = "flex";
-
-        setTimeout(() => {
-          jumpscare.style.display = "none";
-          screamSound.pause();
-          isJumpscareActive = false;  // reset flag setelah jumpscare selesai
-        }, 5000);
+      if (Math.random() < 0.5) {
+        knockSound.currentTime = 0;
+        knockSound.play();
       }
+
+      const imgIndex = Math.floor(Math.random() * jumpscareImages.length);
+      jumpscareImg.src = jumpscareImages[imgIndex];
+
+      const screamIndex = Math.floor(Math.random() * screamSounds.length);
+      const screamSound = screamSounds[screamIndex];
+      screamSound.currentTime = 0;
+      screamSound.play();
+
+      jumpscare.style.display = "flex";
+
+      setTimeout(() => {
+        jumpscare.style.display = "none";
+        screamSound.pause();
+        isJumpscareActive = false;
+
+        gameStarted = false;
+        pixel.style.display = "none";
+        mainMenu.style.display = "flex";
+      }, 5000);
     });
 
-    // Inisialisasi pixel pertama
-    placePixelRandomly();
-    window.addEventListener("resize", placePixelRandomly);
+    window.addEventListener("resize", () => {
+      if (gameStarted) placePixelRandomly();
+    });
   </script>
 
 </body>
